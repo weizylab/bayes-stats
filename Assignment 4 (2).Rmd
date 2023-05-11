@@ -1,0 +1,84 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+date: '2022-10-06'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 2.
+### (c)
+We implement a Metropolis algorithm to approximate $P(\alpha,\beta|x,y)$. After adjusting different proposal distribution, we finally to achieve a reasonable acceptance rate of approximately 72%.
+```{r}
+library(MASS)
+inv = solve
+nest = read.table("msparrownest.dat")
+S = 10000
+burnin=5000
+y = nest[, 1]
+n = length(y)
+x = cbind(rep(1, n), nest[, 2])
+# a fair proposal distribution 
+prop =  inv(t(x) %*% x)
+# Prior
+mean_theta = c(0, 0)
+sd_theta = sqrt(c(25, 0.25))
+a = numeric(S + burnin)
+b = numeric(S + burnin)
+accpt = 0
+theta = c(0, 0)
+ratio = function(x, y, theta) {
+  p = exp(x %*% theta) / (1 + exp(x %*% theta))
+  sum(dbinom(y, 1, p, log = TRUE))+sum(dnorm(theta, mean_theta, sd_theta, log = TRUE))
+}
+for (i in 1:(S + burnin)) {
+  theta_star = mvrnorm(1, theta, prop)
+  log_mh = ratio(x, y, theta_star) -ratio(x, y, theta)
+
+  if (log(runif(1)) < log_mh) {
+    theta = theta_star
+    if (i > burnin) {
+      accpt = accpt + 1
+    }
+  }
+  a[i] = theta[1]
+  b[i] = theta[2]
+}
+a = a[burnin:length(a)]
+b = b[burnin:length(b)]
+accpt / S
+```
+
+### (d)
+```{r}
+library(ggplot2)
+a_prior = data.frame(
+  val = seq(-10, 10, length.out = 1000),
+  density = dnorm(seq(-10, 10, length.out = 1000), 0, 5),
+  var = 'alpha', dist = 'prior'
+)
+b_prior = data.frame(
+  val = seq(-1, 1, length.out = 1000),
+  density = dnorm(seq(-1, 1, length.out = 1000), 0, 0.5),
+  var = 'beta', dist = 'prior'
+)
+
+a_post = data.frame(
+  val = a, var = 'alpha', dist = 'posterior')
+b_post = data.frame(
+  val = b, var = 'beta', dist = 'posterior')
+priors = rbind(a_prior, b_prior)
+posts = rbind(a_post, b_post)
+
+ggplot(priors, aes(x = val, y = density, color = dist)) +
+  geom_line(size=1.5) +
+  geom_density(data=posts, mapping = aes(x = val, y = ..density..),size=1.5) +
+  facet_wrap(~ var,scales = 'free')+
+  scale_color_manual(values=c("navy", "gold"))+
+  ggtitle("Prior and Posterior Densities of Alpha and Beta")
+```
+
+ The plot above shows the prior densities of $\alpha$ and $\beta$ and posterior densities of $\alpha$ and $\beta$. We can see that the posterior densities for both $\alpha$ and $\beta$ are less variate than their prior. The posteriors' center(mean) also changed.

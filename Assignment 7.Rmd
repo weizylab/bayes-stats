@@ -1,0 +1,158 @@
+---
+title: "Assignment 7 (2)"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 8.3
+
+```{r, message=FALSE,warning=FALSE}
+library(dplyr)
+library(tidyr)
+library(MCMCpack)
+library(coda)
+library(MASS)
+schools.list = lapply(1:8, function(i) {
+  f = paste("school",i,".dat",sep="")
+  w = read.table(f)
+  
+  data.frame(
+    school = i,
+    hours = w[, 1] %>% as.numeric
+  )
+})
+Y = do.call(rbind, schools.list)
+```
+
+### (a)
+```{r,fig.width=10, fig.height=12}
+# Prior
+mu0 = 7
+g0_square = 5
+tau0_square = 10
+eta0 = 2
+sigma0_square = 15
+nu0 = 2
+m=8
+# Starting values
+n = sample_var = ybar = rep(NA, m)
+for (i in 1:m) {
+  Y_i = Y[Y[, 1] == i, 2]
+  ybar[i] = mean(Y_i)
+  sample_var[i] = var(Y_i)
+  n[i] = length(Y_i)
+}
+theta = ybar
+sigma2 = mean(sample_var)
+mu = mean(theta)
+tau2 = var(theta)
+#Gibbs
+S = 2000
+THETA = matrix(nrow = S, ncol = m)
+SMT = matrix(nrow = S, ncol = 3)
+colnames(SMT) = c('sigma2', 'mu', 'tau2')
+for (s in 1:S) {
+  # Sample theta
+  for (j in 1:m) {
+    vtheta = 1 / (n[j] / sigma2 + 1 / tau2)
+    etheta = vtheta * (ybar[j] * n[j] / sigma2 + mu / tau2)
+    theta[j] = rnorm(1, etheta, sqrt(vtheta))
+  }
+  # Sample sigma square
+  nun = nu0 + sum(n)
+  ss = nu0 * sigma0_square
+  for (j in 1:m) {
+    ss = ss + sum((Y[Y[, 1] == j, 2] - theta[j])^2)
+  }
+  sigma2 = 1 / rgamma(1, nun / 2, ss / 2)
+  # Sample mu
+  vmu = 1 / (m / tau2 + 1 /g0_square)
+  emu = vmu * (m * mean(theta) / tau2 + mu0 / g0_square)
+  mu = rnorm(1, emu, sqrt(vmu))
+  # Sample tau square
+  etam = eta0 + m
+  ss = eta0 * tau0_square + sum((theta - mu)^2)
+  tau2 = 1 / rgamma(1, etam / 2, ss / 2)
+  
+  THETA[s, ] = theta
+  SMT[s, ] = c(sigma2, mu, tau2)
+}
+par(mfrow = c(3,1))
+plot(SMT[,1],type = "l",ylab = "Sigma square")
+plot(SMT[,2],type = "l",ylab = "Mu")
+plot(SMT[,3],type = "l",ylab = "Tau square",ylim = c(0,20))
+
+effectiveSize(SMT[, 1])
+effectiveSize(SMT[, 2])
+effectiveSize(SMT[, 3])
+```
+We can see from the trace plot that our Markov Chain is stationary and converge to certain value instead of bouncing up and down. And we ran the chain long enough since we can see that the effective sizes for $\sigma^2$, $\mu$, and $\tau^2$ are all above 1000.
+
+### (b)
+```{r}
+#posterior means of sigma square
+mean(SMT[,1])
+#95% confidence region for sigma square
+quantile(SMT[,1],prob=c(0.025,0.975))
+#posterior means of mu
+mean(SMT[,2])
+#95% confidence region for mu
+quantile(SMT[,2],prob=c(0.025,0.975))
+#posterior means of tau square
+mean(SMT[,3])
+#95% confidence region for tau square
+quantile(SMT[,3],prob=c(0.025,0.975))
+
+par(mfrow = c(1,3))
+seq1 = seq(0.1, 100, by = 0.1)
+plot(density(SMT[,1]),main = "",xlab="sigma square",col="gold",lwd=2)
+lines(seq1, dinvgamma(seq1, nu0/2, nu0*sigma0_square/2),col="red",lwd=2)
+
+plot(density(SMT[,2]),main = "",xlab="mu",col="gold",lwd=2)
+lines(seq1, dnorm(seq1, mu0, sqrt(g0_square)),col="red",lwd=2)
+
+plot(density(SMT[,3]),main = "",xlab="tau square",col="gold",lwd=2)
+lines(seq1, dinvgamma(seq1, eta0/2, eta0*tau0_square/2),col="red",lwd=2)
+legend('topright', lty = 1, legend = c('posterior', 'prior'),col=c("gold","red"))
+```
+The posterior means and 95% confidence regions for $\sigma^2$, $\mu$, and $\tau^2$ are above.
+We can also see from the plots that our prior beliefs for $\sigma^2$, $\mu$, and $\tau^2$ are more widespread, and the densities for posterior show a more certain update on our beliefs. All three parameters changed a lot visually, while the distribution for $\sigma^2$ is the farthest from out prior belief.
+
+### (C)
+```{r}
+r_post = SMT[,3]/(SMT[,1]+SMT[,3])
+tau0_square_sample = 1/rgamma(S, eta0/2, eta0*tau0_square/2)
+sigma0_square_sample = 1/rgamma(S, nu0/2, nu0*sigma0_square/2)
+r_prior = tau0_square_sample/(sigma0_square_sample+tau0_square_sample)
+plot(density(r_post), col = "gold", xlab = "R",main = 'Density of R',lwd=2)
+lines(density(r_prior), col = "red",lwd=2)
+legend('topright', lty = 1, col = c("gold", "red"), legend = c('Posterior', 'Prior'))
+mean(r_post)
+```
+R is the variation between schools over total variation. And we found out that around 26% of the variation is between-school variation.
+
+### (d)
+```{r}
+mean(THETA[, 7] < THETA[, 6])
+mean(apply(THETA, 1, which.min) == 7)
+```
+We can see that $P(\theta_7<\theta_6|rest)\approx0.52$ and $P(\theta_7=min(\theta)|rest)\approx0.33$.
+
+### (e)
+```{r}
+post_expect = colMeans(THETA)
+plot(post_expect,ybar,pch=1,xlab = "Posterior Expectations",ylab = " Sample Averages")
+abline(a = 0, b = 1,col="red")
+#sample mean of all observations
+mean(Y[, 2])
+#posterior mean of mu
+mean(SMT[, 2])
+```
+Our sample mean of all observations is around 7.691 and posterior mean of $\mu$ is around 7.546.
+From the plot, we can see that there is a strong relationship between the sample averages and the posterior expectations. Also, schools with high or low sample averages tend to pull away from the posterior expectations while schools with sample averages close to the global mean have a less difference between its group posterior expectations and group sample average.

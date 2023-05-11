@@ -1,0 +1,95 @@
+---
+title: "Assignment 1 (3)(4)"
+author: "Zhiyuan Wei"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Problem 3
+
+### 1.
+$$P(Y_1,Y_2,...,Y_{100} | \theta) = \theta^{\sum_{i=1}^{100}y_i} (1-\theta)^{100-\sum_{i=1}^{100}y_i}$$
+$$P(\sum Y_i=y | \theta)={100 \choose y}\theta^y(1-\theta)^{100-y}$$
+
+### 2.
+$$P(\sum Y_i=57 | \theta)={100 \choose 57}\theta^{57}(1-\theta)^{43}$$
+```{r}
+theta <- seq(0,1,by=0.1)
+prob <- choose(100,57)*(theta^57)*(1-theta)^(100-57)
+plot(theta, prob,ylab="Pr(Yi=57 |theta, n=100)",xlab="theta")
+```
+
+From the plot, we can see that the maximum likelihood estimate is for theta = 0.6.
+
+### 3.
+$$P(\theta)=1/11$$
+$$P(Y_i=y | \theta)={100 \choose 57}\theta^{57}(1-\theta)^{43}$$
+$$P(y)=\int P(y|\theta)\pi(\theta)d\theta=\sum P(\theta)P(Y_i=y | \theta)$$
+$$P(\theta|Y_i=y)=\frac{ P(Y_i=y | \theta)P(\theta) }{P(y)}$$
+```{r}
+prior <- 1/11
+prob <- (choose(100,57)*(theta^57)*(1-theta)^43)
+p_y <- sum(prob*1/11)
+posterior <- (prob*1/11)/p_y
+plot(theta,posterior,xlab="theta",ylab="Pr(theta | Y)")
+```
+
+From the plot, we can see that the posterior mode is when theta = 0.6.
+
+### 4.
+$$P(\theta_2)=1$$
+$$P(Y_i=y | \theta_2)={100 \choose 57}\theta_2^{57}(1-\theta_2)^{43}$$
+$$P(\theta_2)P(Y_i=y | \theta_2)$$
+```{r}
+theta_2 <- seq(0,1,by=0.01)
+prior_2 <- 1
+prob <- (choose(100,57)*(theta_2^57)*(1-theta_2)^43)
+posterior_2 <- prob*prior_2
+plot(theta_2,posterior_2,type="l",xlab="theta",ylab="Pr(theta)*Pr(Yi=57 | theta)")
+```
+
+In this plot, we let the theta be approximately continuous as any value(on a 0.01 scale level) in the interval [0,1], and we can see the posterior mode now is around theta = 0.6 but not strictly equals 0.6.
+
+### 5.
+$$(\theta|Y_i=y) \sim {\sf Beta}(58,44)$$
+```{r}
+theta_2 <- seq(0,1,by=0.01)
+posterior_3 <- dbeta(theta_2,1+57,1+100-57)
+plot(theta_2,posterior_3,type="l",xlab = "theta",ylab = "Posterior Density")
+```
+
+We plot the posterior with beta distribution. And we can see the estimate for theta is also around 0.6, but slightly lower than 0.6.
+
+
+# Problem 4
+```{r}
+theta_0 <- seq(0.1,0.9,by=0.1)
+n_0 <- c(1,2,8,16,32)
+lst <- matrix(0,length(n_0),length(theta_0))
+# create a matrix with length of n_0 and theta_0
+for (i in 1:length(n_0)){
+  for (j in 1:length(theta_0)){
+    a = theta_0[j]*n_0[i]
+    b = (1-theta_0[j])*n_0[i]
+    # a=theta_0*n_0, b=(1-theta_0)*n_0
+    n=100
+    y=57
+    lst[i,j] <- 1-pbeta(.5,a+y,b+n-y)
+    # y follows binomial distribution with prior beta distribution of theta
+    # The posterior follows Beta(a+y,b+n-y)
+    # 1-pbeta(0.5,a+y, b+n-y) gives you Pr(θ > 0.5|Y=57)
+    # And we store each value into the matrix we created
+  }
+}
+#lst
+#contour plot
+contour(n_0,theta_0,lst,main="Contour Plot",xlab="n_0", ylab="theta_0",
+        level=c(0.975,0.95,0.9,0.7,0.5,0.3,0.1))
+```
+From the contour plot,  we can see that for θ_0 less than 0.5, there are about 90% to have posterior that θ is larger than 0.5 when sample size(n_0) is small, while with larger sample size, the chance for such posterior decreases. For θ_0 larger than 0.5, the posterior has a high degree of certainty (above 0.95 or 0.975) that its θ is larger than 0.5 regardless of the sample size, although there is a small tendency that larger sample size will have a higher certainty.

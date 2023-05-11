@@ -1,0 +1,180 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 7.4
+
+```{r}
+library(MASS)
+library(ggplot2)
+agehw = as.matrix(read.table('agehw.dat'))
+colnames(agehw) = agehw[1, ]
+agehw = agehw[-1, ]
+agehw = matrix(as.numeric(agehw), nrow = 100)
+```
+
+### a
+I assume that most of the marriage couples are in the range of (20,70) and set $\mu_0=(45,45)^T$, and thus $\sigma^2 \approx156$. We also assume a prior correlation of 0.75, so that $\sigma_{1,2}=117$, and we have our covariance matrix.
+```{r}
+Y = agehw
+p = ncol(agehw)
+n = nrow(agehw)
+ybar = colMeans(agehw)
+
+mu0 = rep(50, p)
+d0 = s0 = rbind(c(156, 117), c(117, 156))
+# nu0 = p + 2
+nu0 = p + 2
+s0
+```
+
+### b
+```{r}
+set.seed(0)
+N = 100
+S = 9
+Y_preds = lapply(1:S, function(s) {
+  theta = mvrnorm(n = 1, mu0, s0)
+  sigma = solve(rWishart(1, nu0, solve(s0))[, , 1])
+  Y_s = mvrnorm(n = 100, theta, sigma)
+  data.frame(Y1 = Y_s[, 1], Y2 = Y_s[, 2], dataset = s)})
+data_pred = do.call(rbind, Y_preds)
+ggplot(data_pred, aes(x = Y1, y = Y2)) +
+  geom_point(col="navy") +
+  facet_wrap(~ dataset)
+```
+Above are the scatter plots for the prior predictive datasets.
+
+### c
+```{r}
+S = 10000
+sigma = cov(Y)
+MU = SIGMA = NULL
+#Gibbs
+for(s in 1:S){
+  dn <- solve(solve(d0) + n * solve(sigma))
+  mun <- dn %*% (solve(d0) %*%  mu0 + n * solve(sigma) %*% ybar)
+  mu <- mvrnorm(1, mun, dn)
+  sn <- s0 + (t(Y) - c(mu)) %*% t( t(Y) - c(mu))
+  sigma <- solve( rWishart(1, nu0 + n, solve(sn))[,,1])
+  MU <- rbind(MU, mu)
+  SIGMA <- rbind(SIGMA, c(sigma))
+}
+#plot the joint posterior distribution of theta_h and theta_w
+ggplot(as.data.frame(MU), aes(x = V1, y = V2))+
+  geom_point(alpha = .3,color="steelblue")+
+  xlab("Age of Husband")+
+  ylab("Age of Wife")
+
+#95% posterior confidence intervals for theta_h and theta_w
+print(quantile(MU[,1], c(0.025, 0.5, 0.975)))
+print(quantile(MU[,2], c(0.025, 0.5, 0.975)))
+
+#plot the marginal posterior density of the correlation between y_h and y_w
+covariance <- SIGMA[,2]
+var_husband <- SIGMA[,1]
+var_wife <- SIGMA[,4]
+corr <- covariance/sqrt(var_husband*var_wife)
+corr <- data.frame(corr)
+ggplot(data = corr, aes(x = corr))+
+  geom_density(color="red",size=1.1)
+
+#95% confidence intervals for correlation coefficient
+print(quantile(corr[,1], c(0.025, 0.5, 0.975)))
+```
+The 95% posterior confidence intervals and the plot of joint posterior distribution of $\theta_h$ and $\theta_w$, the 95% confidence intervals for correlation coefficient and the plot of marginal posterior density of the correlation between $y_h$ and $y_w$ are above.
+
+
+### d
+#### i
+```{r}
+THETA = SIGMA = NULL
+sigma = cov(Y)
+
+# Gibbs
+for (s in 1:S) {
+  theta = mvrnorm(n = 1, ybar, sigma / n)
+  resid = t(Y) - c(theta)
+  s_theta = resid %*% t(resid)
+  sigma = solve(rWishart(1, n + 1, solve(s_theta))[, , 1])
+  THETA <- rbind(THETA, theta)
+  SIGMA <- rbind(SIGMA, c(sigma))
+}
+covariance <- SIGMA[,2]
+var_husband <- SIGMA[,1]
+var_wife <- SIGMA[,4]
+corr <- covariance/sqrt(var_husband*var_wife)
+corr <- data.frame(corr)
+#95% posterior confidence intervals for theta_h
+print(quantile(THETA[,1], c(0.025, 0.5, 0.975)))
+#95% posterior confidence intervals for theta_w
+print(quantile(THETA[,2], c(0.025, 0.5, 0.975)))
+#95% confidence intervals for correlation coefficient
+print(quantile(corr[,1], c(0.025, 0.5, 0.975)))
+```
+
+#### ii
+For the prior $\sum \sim InverseWishart(p+1,S^{-1})$ and $\theta|\sum \sim MVN(\bar{y},\sum)$, we then have $\theta|\sum,Y \sim MVN(\bar{y},\sum/(n+1))$ and $\sum|\theta,Y \sim InverseWishart(n+p+1,S^{-1}/(n+1))$ where $S=\sum(y_i-\bar{y})(y_i-\bar{y})^T/n$
+```{r}
+THETA = SIGMA = NULL
+sigma = cov(Y)
+for (s in 1:S) {
+  theta = mvrnorm(n = 1, ybar, sigma/(n+1))
+  s_new = (t(Y) - ybar)%*%t(t(Y) - ybar)/n
+  sigma = solve(rWishart(1, n+p+1, solve(s_new)/(n+1))[, , 1])
+  THETA <- rbind(THETA, theta)
+  SIGMA <- rbind(SIGMA, c(sigma))
+}
+covariance <- SIGMA[,2]
+var_husband <- SIGMA[,1]
+var_wife <- SIGMA[,4]
+corr <- covariance/sqrt(var_husband*var_wife)
+corr <- data.frame(corr)
+#95% posterior confidence intervals for theta_h
+print(quantile(THETA[,1], c(0.025, 0.5, 0.975)))
+#95% posterior confidence intervals for theta_w
+print(quantile(THETA[,2], c(0.025, 0.5, 0.975)))
+#95% confidence intervals for correlation coefficient
+print(quantile(corr[,1], c(0.025, 0.5, 0.975)))
+```
+
+#### iii
+```{r}
+mu0=rep(0,p)
+nu0=3
+s0=1000*diag(p)
+d0=10^5 * diag(p)
+MU = SIGMA = NULL
+sigma = cov(Y)
+for(s in 1:S) {
+  dn <- solve(solve(d0) + n * solve(sigma))
+  mun <- dn %*% (solve(d0) %*%  mu0 + n * solve(sigma) %*% ybar)
+  mu <- mvrnorm(1, mun, dn)
+  sn <- s0 + (t(Y) - c(mu)) %*% t( t(Y) - c(mu))
+  sigma <- solve( rWishart(1, nu0 + n, solve(sn))[,,1])
+  MU <- rbind(MU, mu)
+  SIGMA <- rbind(SIGMA, c(sigma))
+}
+covariance <- SIGMA[,2]
+var_husband <- SIGMA[,1]
+var_wife <- SIGMA[,4]
+corr <- covariance/sqrt(var_husband*var_wife)
+corr <- data.frame(corr)
+#95% posterior confidence intervals for theta_h
+print(quantile(MU[,1], c(0.025, 0.5, 0.975)))
+#95% posterior confidence intervals for theta_w
+print(quantile(MU[,2], c(0.025, 0.5, 0.975)))
+#95% confidence intervals for correlation coefficient
+print(quantile(corr[,1], c(0.025, 0.5, 0.975)))
+```
+
+### e
+We compare the CIs by four different priors, and see that our prior did a fairly well job since its intervals are narrow and the correlations are high. Therefore, I believe my prior is helpful information is helpful in estimating $\theta$ and $\sum$.
+On the other hand, the unit information prior has a slightly better result than my prior since its intervals are narrower. So it might be preferable. 
+Since our sample size is 10000 which is very large, the results for all the priors are close. But if we use a much smaller sample size n=25, there will be a big difference of the intervals, especially for the diffuse prior since it has a very weak prior information, the correlation for the diffuse prior will be much lower than the other priors. 

@@ -1,0 +1,35 @@
+---
+title: "Assignment 4"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1
+
+Since $y_1,y_2,...,y_n \sim \ Poisson(\theta)$, we know the Jeffrey's prior is then $\theta \sim \ Gamma(1/2,b\rightarrow0)$. And we can derive the posterior distribution as $Gamma(1/2 +\sum{y_i},n)$ for which $n=10$ and $\sum{y_i}=200$.
+We then pick three different importance density functions to generate 1000 samples and use them to generate $\theta$. In the end, we calculate the probability for $\theta >20$. The results shows that the posterior probability $\theta > 20$ is approximately 50%.
+```{r}
+n=10
+sample=1000
+sum_yi=200
+# Case 1: abs(Normal(0,1))
+x1=abs(rnorm(sample))
+theta1=rgamma(x1,sum_yi+1/2,n)
+sum(theta1>20)/sample
+
+#Case 2: uniform(0,1000)
+x2=runif(sample,0,1000)
+theta2=rgamma(x2,sum_yi+1/2,n)
+sum(theta2>20)/sample
+
+# Case 3: abs(Cauchy(0,1))
+x3=abs(rcauchy(sample))
+theta3=rgamma(x3,sum_yi+1/2,n)
+sum(theta3>20)/sample
+```
+

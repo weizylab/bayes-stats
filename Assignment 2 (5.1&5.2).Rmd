@@ -1,0 +1,208 @@
+---
+title: "Assignment 2 (5.1)&(5.2)"
+output:
+  pdf_document:
+    latex_engine: xelatex
+author: 'Zhiyuan Wei'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 5.1
+
+```{r}
+#load the data and preparation
+school1 <- read.table("school1.dat")
+school2 <- read.table("school2.dat")
+school3 <- read.table("school3.dat")
+time1 <- school1$V1
+time2 <- school2$V1
+time3 <- school3$V1
+mu0 <- 5
+sigmasq <- 4
+k0 <- 1
+v0 <- 2
+```
+
+### (a)
+```{r}
+#school1
+y_bar1 <- mean(time1)
+var1 <- var(time1)
+sd1 <- sd(time1)
+n1 <- length(time1)
+kn1 <- k0 + n1
+mu_n1 <- (k0*mu0+n1*y_bar1)/kn1
+vn1 <- v0 + n1
+sigmasq_n1 <- (1/vn1)*(v0*sigmasq+(n1-1)*var1+((k0*n1)/kn1)*(y_bar1-mu0)^2)
+gamma1 <- rgamma(10000, vn1/2,(vn1*sigmasq_n1)/2)
+invgamma1 <- 1/gamma1
+theta1 <- rnorm(10000,mu_n1,sqrt(invgamma1/kn1))
+mean_theta1 <- mean(theta1)
+CI_theta1 <- quantile(theta1,c(0.025,0.975))
+mean_sigma1 <- mean(sqrt(invgamma1))
+CI_sigma1 <- quantile(sqrt(invgamma1),c(0.025,0.975))
+
+#school2
+y_bar2 <- mean(time2)
+var2 <- var(time2)
+sd2 <- sd(time2)
+n2 <- length(time2)
+kn2 <- k0 + n2
+mu_n2 <- (k0*mu0+n2*y_bar2)/kn2
+vn2 <- v0 + n2
+sigmasq_n2 <- (1/vn2)*(v0*sigmasq+(n2-1)*var2+((k0*n2)/kn2)*(y_bar2-mu0)^2)
+gamma2 <- rgamma(10000, vn2/2,(vn2*sigmasq_n2)/2)
+invgamma2 <- 1/gamma2
+theta2 <- rnorm(10000,mu_n2,sqrt(invgamma2/kn2))
+mean_theta2 <- mean(theta2)
+CI_theta2 <- quantile(theta2,c(0.025,0.975))
+mean_sigma2 <- mean(sqrt(invgamma2))
+CI_sigma2 <- quantile(sqrt(invgamma2),c(0.025,0.975))
+
+#school3
+y_bar3 <- mean(time3)
+var3 <- var(time3)
+sd3 <- sd(time3)
+n3 <- length(time3)
+kn3 <- k0 + n3
+mu_n3 <- (k0*mu0+n3*y_bar3)/kn3
+vn3 <- v0 + n3
+sigmasq_n3 <- (1/vn3)*(v0*sigmasq+(n3-1)*var3+((k0*n3)/kn3)*(y_bar3-mu0)^2)
+gamma3 <- rgamma(10000, vn3/2,(vn3*sigmasq_n3)/2)
+invgamma3 <- 1/gamma3
+theta3 <- rnorm(10000,mu_n3,sqrt(invgamma3/kn3))
+mean_theta3 <- mean(theta3)
+CI_theta3 <- quantile(theta3,c(0.025,0.975))
+mean_sigma3 <- mean(sqrt(invgamma3))
+CI_sigma3 <- quantile(sqrt(invgamma3),c(0.025,0.975))
+
+#put the results together
+result_a1 <- data.frame(
+  "School" <- c("School 1","School 2","School 3"),
+  "Post_Mean_theta" <- c(mean_theta1,mean_theta2,mean_theta3),
+  "CI_theta_lower" <- c(CI_theta1[[1]],CI_theta2[[1]],CI_theta3[[1]]),
+  "CI_theta_upper" <- c(CI_theta1[[2]],CI_theta2[[2]],CI_theta3[[2]])
+)
+colnames(result_a1) <- c("School","Post Mean theta","CI theta lower","CI theta upper")
+                        
+result_a2 <- data.frame(
+  "School" <- c("School 1","School 2","School 3"),
+  "Post_Mean_sigma" <- c(mean_sigma1,mean_sigma2,mean_sigma3),
+  "CI_sigma_lower" <- c(CI_sigma1[[1]],CI_sigma2[[1]],CI_sigma3[[1]]),
+  "CI_sigma_upper" <- c(CI_sigma1[[2]],CI_sigma2[[2]],CI_sigma3[[2]])
+)
+colnames(result_a2) <- c("School","Post Mean sigma","CI sigma lower","CI sigma upper")
+result_a1
+result_a2
+```
+
+The posterior means and 95% confidence intervals for the mean theta and standard deviation sigma from each school are shown above.
+
+### (b)
+```{r}
+result_b <- data.frame(
+  "i,j,k" <- "P(thetai < thetaj < thetak)",
+  "1,2,3" <- mean(theta1<theta2 & theta2<theta3),
+  "1,3,2" <- mean(theta1<theta3 & theta3<theta2),
+  "2,1,3" <- mean(theta2<theta1 & theta1<theta3),
+  "2,3,1" <- mean(theta2<theta3 & theta3<theta1),
+  "3,1,2" <- mean(theta3<theta1 & theta1<theta2),
+  "3,2,1" <- mean(theta3<theta2 & theta2<theta1)
+)
+colnames(result_b) <- c("(i,j,k)","(1,2,3)","(1,3,2)",
+                        "(2,1,3)","(2,3,1)","(3,1,2)","(3,2,1)")
+result_b
+```
+
+The posterior probability that theta i < theta j < theta k for all six permutations are shown above.
+
+### (c)
+```{r}
+ypred1 <- rnorm(10000, theta1, sqrt(invgamma1))
+ypred2 <- rnorm(10000, theta2, sqrt(invgamma2))
+ypred3 <- rnorm(10000, theta3, sqrt(invgamma3))
+
+result_c <- data.frame(
+  "i,j,k" <- "P(Y_i < Y_j < Y_k)",
+  "1,2,3" <- mean(ypred1<ypred2 & ypred2<ypred3),
+  "1,3,2" <- mean(ypred1<ypred3 & ypred3<ypred2),
+  "2,1,3" <- mean(ypred2<ypred1 & ypred1<ypred3),
+  "2,3,1" <- mean(ypred2<ypred3 & ypred3<ypred1),
+  "3,1,2" <- mean(ypred3<ypred1 & ypred1<ypred2),
+  "3,2,1" <- mean(ypred3<ypred2 & ypred2<ypred1)
+)
+colnames(result_c) <- c("(i,j,k)","(1,2,3)","(1,3,2)",
+                        "(2,1,3)","(2,3,1)","(3,1,2)","(3,2,1)")
+result_c
+```
+
+The posterior probability of sample from the posterior predictive distribution of schools that Y_pred_i < Y_pred_j < Y_pred_k for all six permutations are shown above.
+
+### (d)
+```{r}
+result_d <- data.frame(
+   "P(theta1 > theta2 & theta1 > theta3)" <- mean(theta1>theta2 & theta1>theta3),
+   "P(Y_pred1 > Y_pred2 & Y_pred1 > Y_pred3)" <- mean(ypred1>ypred2 & ypred1>ypred3)
+)
+colnames(result_d) <- c("P(theta1 > theta2 & theta3)",
+                        "P(Y_pred1 > Y_pred2 & Y_pred3)")
+result_d
+```
+
+The posterior probability that theta 1 is bigger than both theta 2 and theta 3, and the posterior probability that Y_pred_1 is bigger than both Y_pred_2 and y_pred_3 are shown above.
+
+# 5.2
+
+```{r}
+mu_zero <- 75
+sigmasq0 <- 100
+ya <- 75.2
+sda <- 7.3
+n_a <- 16
+yb <- 77.5
+sdb <- 8.1
+n_b <- 16
+v_zero=c(1,2,4,8,16,32)
+k_zero=c(1,2,4,8,16,32)
+#a
+lst_a=list(list(),list(),list(),list(),list(),list())
+vn_a <- v_zero+n_a
+kn_a <- k_zero+n_a
+
+for (i in 1:length(k_zero)){
+  mu_na <- (k_zero[i]*mu_zero+n_a*ya)/kn_a[i]
+  sigmasq_na <- (1/vn_a[i])*
+    (v_zero[i]*sigmasq0+(n_a-1)*(sda^2)+((k_zero[i]*n_a)/kn_a[i])*(ya-mu_zero)^2)
+  invgamma_a <- 1/rgamma(10000, vn_a[i]/2,(vn_a[i]*sigmasq_na)/2)
+  theta_a <- rnorm(10000,mu_na,sqrt(invgamma_a/kn_a[i]))
+  lst_a[[i]] <- theta_a
+}
+
+#b
+vn_b <- v_zero+n_b
+kn_b <- k_zero+n_b
+
+lst_b=list(list(),list(),list(),list(),list(),list())
+for (i in 1:length(k_zero)){
+  mu_nb <- (k_zero[i]*mu_zero+n_b*yb)/kn_b[i]
+  sigmasq_nb <- (1/vn_b[i])*
+    (v_zero[i]*sigmasq0+(n_b-1)*(sdb^2)+((k_zero[i]*n_b)/kn_b[i])*(yb-mu_zero)^2)
+  invgamma_b <- 1/rgamma(10000, vn_b[i]/2,(vn_b[i]*sigmasq_nb)/2)
+  theta_b <- rnorm(10000,mu_nb,sqrt(invgamma_b/kn_b[i]))
+  lst_b[[i]] <- theta_b
+}
+
+#Pr(thetaA < thetaB)
+result <- c()
+for (i in 1:length(v_zero)){
+  prob <- mean(lst_a[[i]]<lst_b[[i]])
+  result[i]<- prob
+}
+#plot
+plot(v_zero,result,xlab="v0 = k0",ylab = "Pr(thetaA < thetaB | yA, yB)")
+```
+
+From the plot, we can see that as prior sample size increases, the probability that theta A < theta B decreases. The data is showing that there is a difference between theta A and theta B, while the prior sample is showing that mean of two groups are the same. Therefore, as we increase the size of the prior sample, the belief in the data will be weakened by the prior sample, and the prior sample will play a bigger role in this process. 
